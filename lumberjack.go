@@ -253,10 +253,14 @@ func backupName(name, crnExt, backExt string, local bool) string {
 	dir := filepath.Dir(name)
 	filename := filepath.Base(name)
 	ext := filepath.Ext(filename)
+	var prefix string
 	if crnExt != "" {
-		ext = crnExt
+		prefix = filename[:len(filename)-len(crnExt)]
+		ext = backExt
+	} else {
+		prefix = filename[:len(filename)-len(ext)]
 	}
-	prefix := filename[:len(filename)-len(ext)]
+
 	t := currentTime()
 	if !local {
 		t = t.UTC()
