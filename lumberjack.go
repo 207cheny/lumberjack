@@ -3,7 +3,7 @@
 // Note that this is v2.0 of lumberjack, and should be imported using gopkg.in
 // thusly:
 //
-//   import "gopkg.in/natefinch/lumberjack.v2"
+//	import "gopkg.in/natefinch/lumberjack.v2"
 //
 // The package name remains simply lumberjack, and the code resides at
 // https://github.com/natefinch/lumberjack under the v2.0 branch.
@@ -66,7 +66,7 @@ var _ io.WriteCloser = (*Logger)(nil)
 // `/var/log/foo/server.log`, a backup created at 6:30pm on Nov 11 2016 would
 // use the filename `/var/log/foo/server-2016-11-04T18-30-00.000.log`
 //
-// Cleaning Up Old Log Files
+// # Cleaning Up Old Log Files
 //
 // Whenever a new logfile gets created, old log files may be deleted.  The most
 // recent files according to the encoded timestamp will be retained, up to a
@@ -106,6 +106,10 @@ type Logger struct {
 	// Compress determines if the rotated log files should be compressed
 	// using gzip. The default is not to perform compression.
 	Compress bool `json:"compress" yaml:"compress"`
+	// CrnExt is the extension to use for rotated log files. The default is ".log.crn".
+	CrnExt string `json:"crnExt" yaml:"crnExt"`
+	// BackExt is the extension to use for rotated backup log files. The default is ".log".
+	BackExt string `json:"backExt" yaml:"backExt"`
 
 	size int64
 	file *os.File
@@ -211,15 +215,16 @@ func (l *Logger) openNew() error {
 		return fmt.Errorf("can't make directories for new logfile: %s", err)
 	}
 
-	name := l.filename()
+	oriName := l.filename()
 	mode := os.FileMode(0600)
+	name := fmt.Sprintf("%s%s", oriName, l.CrnExt)
 	info, err := osStat(name)
 	if err == nil {
 		// Copy the mode off the old logfile.
 		mode = info.Mode()
 		// move the existing file
-		newname := backupName(name, l.LocalTime)
-		if err := os.Rename(name, newname); err != nil {
+		newName := backupName(name, l.CrnExt, l.BackExt, l.LocalTime)
+		if err := os.Rename(name, newName); err != nil {
 			return fmt.Errorf("can't rename log file: %s", err)
 		}
 
@@ -244,10 +249,13 @@ func (l *Logger) openNew() error {
 // backupName creates a new filename from the given name, inserting a timestamp
 // between the filename and the extension, using the local time if requested
 // (otherwise UTC).
-func backupName(name string, local bool) string {
+func backupName(name, crnExt, backExt string, local bool) string {
 	dir := filepath.Dir(name)
 	filename := filepath.Base(name)
 	ext := filepath.Ext(filename)
+	if crnExt != "" {
+		ext = crnExt
+	}
 	prefix := filename[:len(filename)-len(ext)]
 	t := currentTime()
 	if !local {
@@ -255,7 +263,7 @@ func backupName(name string, local bool) string {
 	}
 
 	timestamp := t.Format(backupTimeFormat)
-	return filepath.Join(dir, fmt.Sprintf("%s-%s%s", prefix, timestamp, ext))
+	return filepath.Join(dir, fmt.Sprintf("%s-%s%s", prefix, timestamp, backExt))
 }
 
 // openExistingOrNew opens the logfile if it exists and if the current write
@@ -458,7 +466,12 @@ func (l *Logger) dir() string {
 // filename.
 func (l *Logger) prefixAndExt() (prefix, ext string) {
 	filename := filepath.Base(l.filename())
-	ext = filepath.Ext(filename)
+	if l.CrnExt != "" {
+		ext = l.CrnExt
+	} else {
+		ext = filepath.Ext(filename)
+	}
+
 	prefix = filename[:len(filename)-len(ext)] + "-"
 	return prefix, ext
 }
