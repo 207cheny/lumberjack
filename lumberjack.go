@@ -467,12 +467,12 @@ func (l *Logger) dir() string {
 func (l *Logger) prefixAndExt() (prefix, ext string) {
 	filename := filepath.Base(l.filename())
 	if l.CrnExt != "" {
-		ext = l.CrnExt
+		ext = l.BackExt
+		prefix = filename
 	} else {
 		ext = filepath.Ext(filename)
+		prefix = filename[:len(filename)-len(ext)] + "-"
 	}
-
-	prefix = filename[:len(filename)-len(ext)] + "-"
 	return prefix, ext
 }
 
